@@ -115,7 +115,7 @@ flowchart TD
     class FCD,IMD,QED,SPR,RAG component
 ```
 
-For the full detailed architecture diagram, see [EMOSI Architecture](docs/emosi-architecture.md).
+For the full detailed architecture diagram, see [EMOSI Architecture](docs/emosi-architecture.mmd).
 
 ## Project Structure
 ```
