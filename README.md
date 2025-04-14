@@ -22,8 +22,13 @@ EMOSI is a system that recommends music based on emotions detected from:
 git clone https://github.com/yourusername/emosi.git
 cd emosi
 
-# Install the package
-pip install -e .
+# Install dependencies
+pip install -r requirements.txt
+
+# Special requirements for Qwen model
+pip uninstall transformers
+pip install git+https://github.com/BakerBunker/transformers@21dbefaa54e5bf180464696aa70af0bfc7a61d53
+pip install accelerate
 ```
 
 ## Usage
@@ -142,3 +147,4 @@ emosi/
 ## License
 
 MIT License
+
