@@ -1,0 +1,106 @@
+flowchart TD
+    %% Main Components
+    CLI[main.py CLI Interface]
+    FCD[EmosiFacade\nCoordinates all subsystems]
+    IMD[ImageEmotionDetector\nQwen2.5-Omni-7B]
+    QED[QuestionnaireEmotionDetector]
+    SPD[SpotifyDataLoader]
+    SPR[SpotifyRecommender\nFAISS-based]
+    RAG[RAGEnhancer\nContextual explanations]
+    
+    %% Data Stores
+    TRACKS[(Track Database\nSpotify data)]
+    EMOVEC[(Emotion Vectors)]
+    TRKVEC[(Track Embeddings)]
+    CONST[Constants\nEMOTION_CATEGORIES\nQUESTIONNAIRE]
+    
+    %% Flow Relationships - CLI Interface
+    CLI -->|--mode=text| FCD
+    CLI -->|--mode=image| FCD
+    CLI -->|--mode=questionnaire| FCD
+    CLI -->|--mode=combined| FCD
+    
+    %% Facade Orchestration
+    FCD -->|1a. Image analysis| IMD
+    FCD -->|1b. Process questionnaire| QED
+    FCD -->|2. Get recommendations| SPR
+    FCD -->|3. Enhance recommendations| RAG
+    
+    %% Constants and Configuration
+    CONST -->|Emotion categories| IMD
+    CONST -->|Emotion categories| QED
+    CONST -->|Questionnaire structure| QED
+    
+    %% Image Detector Flow
+    IMD -->|Image path| IMGAN[Image Analysis\nEmotion detection]
+    IMGAN -->|get_emotion_vector| IMVEC[Emotion Vector]
+    IMVEC -->|Input for recommendation| SPR
+    
+    %% Questionnaire Detector Flow
+    QED -->|present_questionnaire| QDISP[Display Questions]
+    QDISP -->|collect_responses| QPROC[Process Responses]
+    QPROC -->|get_emotion_vector| QVEC[Emotion Vector]
+    QVEC -->|Input for recommendation| SPR
+    
+    %% Data Loading Flows
+    SPD -->|load/process| TRACKS
+    SPD -->|generate vectors| EMOVEC
+    SPD -->|compute embeddings| TRKVEC
+    
+    %% Recommender Engine Flows
+    SPR -->|initialize| FAISS[FAISS Index Creation]
+    FAISS -->|emotion_index| ER[Emotion Recommendations]
+    FAISS -->|embedding_index| TR[Text Recommendations]
+    TRACKS -->|track data| SPR
+    EMOVEC -->|emotion vectors| SPR
+    TRKVEC -->|track embeddings| SPR
+    
+    %% RAG Enhancement
+    SPR -->|raw recommendations| RAG
+    RAG -->|enhanced recommendations| OUTPUT[Enhanced Recommendations\nwith explanations]
+    
+    %% Combined Mode Specific
+    IMVEC -->|compare_emotion_vectors| COMP[Emotion Comparison]
+    QVEC -->|compare_emotion_vectors| COMP
+    COMP -->|similarity score| CONTEXT[Context Information]
+    COMP -->|explanation| CONTEXT
+    
+    %% Special Data Flow Paths
+    subgraph FlowPaths
+        direction TB
+        RBE[Recommend by Emotion]
+        RBT[Recommend by Text]
+        RBS[Recommend by Similar Tracks]
+        RIBD[Run Image-based Detection]
+        RTBR[Run Text-based Recommendation]
+        RCMB[Run Combined Recommendation]
+    end
+    
+    FCD -->|facade methods| FlowPaths
+    
+    %% Subgraphs for clarity
+    subgraph EmotionDetection
+        IMD
+        QED
+    end
+    
+    subgraph DataManagement
+        SPD
+        TRACKS
+        EMOVEC
+        TRKVEC
+    end
+    
+    subgraph RecommendationEngine
+        SPR
+        RAG
+    end
+
+    %% Style definitions
+    classDef component fill:#f9f,stroke:#333,stroke-width:1px
+    classDef dataStore fill:#bbf,stroke:#333,stroke-width:1px
+    classDef process fill:#bfb,stroke:#333,stroke-width:1px
+    
+    class FCD,IMD,QED,SPD,SPR,RAG component
+    class TRACKS,EMOVEC,TRKVEC,CONST dataStore
+    class IMGAN,QDISP,QPROC,FAISS,ER,TR,COMP,OUTPUT process
