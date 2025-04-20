@@ -38,6 +38,7 @@ def run_cli_demo():
                         help='Prefer songs released after this year (default: 2010)')
     parser.add_argument('--num-recommendations', type=int, default=5,
                         help='Number of recommendations to return')
+    parser.add_argument('--image', type=str, help='Path to image for emotion-based recommendation')
     
     args = parser.parse_args()
     
@@ -60,8 +61,25 @@ def run_cli_demo():
             
             print("\nRecommended songs:")
             print(format_recommendation_output(recommendations))
+        elif args.mode == 'image' and args.image:
+            print(f"Running image-based recommendation using: '{args.image}'")
+            
+            dominant_emotion, emotion_scores, recommendations = emosi.run_image_based_recommendation(
+                image_path=args.image,
+                num_recommendations=args.num_recommendations
+            )
+            
+            print(f"\nDetected emotion: {dominant_emotion}")
+            print("Emotion scores:")
+            for emotion, score in sorted(emotion_scores.items(), key=lambda x: x[1], reverse=True):
+                print(f"  {emotion}: {score:.3f}")
+            
+            print("\nRecommended songs:")
+            print(format_recommendation_output(recommendations))
         else:
-            print("Please provide a text query with --text argument")
+            print("Please provide required arguments:")
+            print("  For text mode: --mode=text --text='your query'")
+            print("  For image mode: --mode=image --image=path/to/image.jpg")
     
     except Exception as e:
         print(f"Error: {e}")
