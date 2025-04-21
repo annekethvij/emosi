@@ -79,6 +79,138 @@ class SpotifyRecommender:
             logger.error(f"Error recommending by emotion: {e}")
             print(f"Exception during recommendation: {e}")
             return []
+    
+    # Handle slider-based emotion inputs
+    def recommend_by_emotion_sliders(self, emotion_sliders: Dict[str, float], num_recommendations: int = 5) -> List[Dict]:
+        """
+        Generate recommendations based on emotion slider values.
+        
+        Args:
+            emotion_sliders: Dictionary mapping emotion names to intensity values (0-10)
+            num_recommendations: Number of tracks to recommend
+            
+        Returns:
+            List of track recommendations
+        """
+        try:
+            logger.info("Processing emotion slider inputs for recommendations")
+            
+            # Filter out emotions with zero intensity
+            active_emotions = {k: v for k, v in emotion_sliders.items() if v > 0}
+            
+            if not active_emotions:
+                logger.warning("No active emotions found in slider input")
+                # Return empty list or fallback to neutral recommendations
+                return self.recommend_by_emotion(np.zeros(len(EMOTION_CATEGORIES)), num_recommendations)
+            
+            # Create a weighted emotion vector based on slider values
+            emotion_vector = np.zeros(len(EMOTION_CATEGORIES))
+            
+            for emotion, intensity in active_emotions.items():
+                # Normalize intensity to 0-1 range
+                normalized_intensity = intensity / 10.0
+                
+                # Find the emotion in our categories
+                for i, category in enumerate(EMOTION_CATEGORIES):
+                    # Perform case-insensitive matching and handle compound emotions
+                    if category.lower() in emotion.lower() or emotion.lower() in category.lower():
+                        emotion_vector[i] = normalized_intensity
+                        logger.info(f"Mapped emotion '{emotion}' to category '{category}' with intensity {normalized_intensity}")
+            
+            # Normalize the vector if it contains any non-zero values
+            if np.sum(emotion_vector) > 0:
+                emotion_vector = emotion_vector / np.sum(emotion_vector)
+            
+            logger.info(f"Created weighted emotion vector: {emotion_vector}")
+            
+            # Get recommendations using the existing method
+            return self.recommend_by_emotion(emotion_vector, num_recommendations)
+            
+        except Exception as e:
+            logger.error(f"Error processing emotion sliders: {e}", exc_info=True)
+            return []
+    
+    # New function to incorporate image analysis with emotion recommendations
+    def recommend_by_image_and_sliders(self, emotion_sliders: Dict[str, float], 
+                                       image_features: Dict[str, float] = None, 
+                                       num_recommendations: int = 5) -> List[Dict]:
+        """
+        Generate recommendations based on both emotion sliders and image analysis.
+        
+        Args:
+            emotion_sliders: Dictionary mapping emotion names to intensity values (0-10)
+            image_features: Optional dictionary of extracted image features
+            num_recommendations: Number of tracks to recommend
+            
+        Returns:
+            List of track recommendations with enhanced context
+        """
+        try:
+            logger.info("Processing combined image and emotion slider inputs")
+            
+            # Start with emotion slider processing
+            emotion_vector = np.zeros(len(EMOTION_CATEGORIES))
+            active_emotions = {k: v for k, v in emotion_sliders.items() if v > 0}
+            
+            for emotion, intensity in active_emotions.items():
+                normalized_intensity = intensity / 10.0
+                for i, category in enumerate(EMOTION_CATEGORIES):
+                    if category.lower() in emotion.lower() or emotion.lower() in category.lower():
+                        emotion_vector[i] = normalized_intensity
+            
+            # If we have image features, adjust the emotion vector
+            if image_features:
+                logger.info("Incorporating image features into recommendation")
+                
+                # Map visual brightness to valence
+                if 'brightness' in image_features:
+                    # Find index of happiness/joy and boost it based on brightness
+                    for i, category in enumerate(EMOTION_CATEGORIES):
+                        if category.lower() in ['happy', 'happiness', 'joy']:
+                            emotion_vector[i] += image_features['brightness'] * 0.3
+                
+                # Map color temperature to emotional tone
+                if 'color_temperature' in image_features:
+                    temp = image_features['color_temperature']
+                    # Warm colors boost positive emotions
+                    if temp > 0.6:
+                        for i, category in enumerate(EMOTION_CATEGORIES):
+                            if category.lower() in ['happy', 'joy', 'excitement', 'love']:
+                                emotion_vector[i] += 0.2
+                    # Cool colors boost melancholic emotions
+                    elif temp < 0.4:
+                        for i, category in enumerate(EMOTION_CATEGORIES):
+                            if category.lower() in ['sad', 'sadness', 'melancholic']:
+                                emotion_vector[i] += 0.2
+                
+                # Map visual complexity to musical complexity
+                if 'visual_complexity' in image_features:
+                    complexity = image_features['visual_complexity']
+                    # High complexity might suggest more intricate music
+                    if complexity > 0.7:
+                        for i, category in enumerate(EMOTION_CATEGORIES):
+                            if category.lower() in ['chaotic', 'wild', 'excitement']:
+                                emotion_vector[i] += 0.15
+            
+            # Normalize the vector again after adjustments
+            if np.sum(emotion_vector) > 0:
+                emotion_vector = emotion_vector / np.sum(emotion_vector)
+            
+            logger.info(f"Final adjusted emotion vector: {emotion_vector}")
+            
+            # Get recommendations using the emotion vector
+            recommendations = self.recommend_by_emotion(emotion_vector, num_recommendations)
+            
+            # Add image context to recommendations
+            if image_features and recommendations:
+                for rec in recommendations:
+                    rec['image_context'] = True
+            
+            return recommendations
+            
+        except Exception as e:
+            logger.error(f"Error processing image and sliders: {e}", exc_info=True)
+            return []
 
     def recommend_by_text(self, query_text: str, num_recommendations: int = 5, year_cutoff: int = 2010) -> List[Dict]:
         logging.info("Starting text-based recommendation process")
@@ -357,4 +489,38 @@ class SpotifyRecommender:
         except Exception as e:
             logger.error(f"Error getting track info: {e}")
             return {}
-
+            
+    # Utility function to extract features from image
+    def extract_image_features(self, image_data):
+        """
+        Extract features from an image that can influence music recommendations.
+        In a production system, this would use computer vision libraries.
+        
+        Args:
+            image_data: Binary image data or path to image file
+            
+        Returns:
+            Dictionary of extracted image features
+        """
+        try:
+            logger.info("Extracting features from image")
+            
+            # Placeholder - in a real implementation, would use CV libraries
+            # like OpenCV, PIL, or deep learning models
+            
+            # Example placeholder return with default values
+            features = {
+                'brightness': 0.6,         # 0-1 scale
+                'saturation': 0.5,         # 0-1 scale
+                'color_temperature': 0.5,  # 0-1 scale (cool to warm)
+                'visual_complexity': 0.5,  # 0-1 scale
+                'movement_dynamic': 0.5,   # 0-1 scale (still to dynamic)
+                'contrast_level': 0.5      # 0-1 scale
+            }
+            
+            logger.info(f"Extracted image features: {features}")
+            return features
+            
+        except Exception as e:
+            logger.error(f"Error extracting image features: {e}", exc_info=True)
+            return {}
