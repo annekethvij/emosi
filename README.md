@@ -38,58 +38,7 @@ pip install huggingface_hub[hf_xet]
 ### Command Line Interface
 
 ```bash
-# Text-based recommendation
-python main.py --mode=text --text="Happy energetic dance music" --year-cutoff=2015
-
-# Image-based recommendation
-python main.py --mode=image --image=path/to/image.jpg
-
-# Questionnaire-based recommendation
-python main.py --mode=questionnaire
-
-# Combined recommendation (both image and questionnaire)
-python main.py --mode=combined --image=path/to/image.jpg
-
-# For more options
-python main.py --help
-```
-
-### As a Python Package
-
-```python
-from emosi.facade import EmosiFacade
-from emosi.utils import format_recommendation_output
-
-# Initialize the system
-emosi = EmosiFacade(use_dummy=True)  # use_dummy=True for testing without a model
-
-# Text-based recommendation
-recommendations = emosi.recommend_by_text("Relaxing piano music", 
-                                         num_recommendations=5, 
-                                         year_cutoff=2010)
-print(format_recommendation_output(recommendations))
-
-# Image-based recommendation
-emotion, scores, recommendations = emosi.run_image_based_recommendation("path/to/image.jpg")
-print(f"Detected emotion: {emotion}")
-print(format_recommendation_output(recommendations))
-
-# Questionnaire-based recommendation
-questionnaire = emosi.get_questionnaire()
-# Display questions and collect responses
-responses = ["Happy and cheerful", "High energy", "Celebrating a happy moment"]
-emotion, scores, recommendations = emosi.run_text_based_recommendation(responses=responses)
-print(f"Detected emotion: {emotion}")
-print(format_recommendation_output(recommendations))
-
-# Combined recommendation
-context, image_recs, question_recs = emosi.run_combined_recommendation(
-    image_path="path/to/image.jpg",
-    responses=responses
-)
-print(f"Image emotion: {context['image_emotion']}")
-print(f"Questionnaire emotion: {context['questionnaire_emotion']}")
-print(f"Similarity: {context['emotion_similarity']:.2f}")
+python3 main.py --mode=batch --input-folder=/your/folder/inputs --csv-file=/your/folder/emosi_survey_responses_apr23.csv --output-dir=./emosi_output --num-recommendations=10 --year-cutoff=2015
 ```
 
 ## System Architecture
