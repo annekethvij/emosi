@@ -11,10 +11,10 @@ from .constants import EMOTION_CATEGORIES
 logger = logging.getLogger(__name__)
 
 class EmosiFacade:
-    def __init__(self, model_name="Qwen/Qwen2.5-Omni-7B", data_path=None, use_dummy=False):
+    def __init__(self, model_name="Qwen/Qwen2.5-Omni-7B", data_path=None, use_dummy=False, model_precision="auto"):
         logger.info("Initializing EMOSI system...")
         logger.info("Loading image emotion detector...")
-        self.image_detector = ImageEmotionDetector(model_name, use_dummy=use_dummy)
+        self.image_detector = ImageEmotionDetector(model_name, use_dummy=use_dummy, model_precision=model_precision)
         logger.info("Loading questionnaire emotion detector...")
         self.questionnaire_detector = QuestionnaireEmotionDetector()
         logger.info("Loading Spotify data and recommender...")
@@ -147,4 +147,29 @@ class EmosiFacade:
         }
         default_explanation = f"Your image conveys a primarily {image_emotion} emotion, while your questionnaire responses suggest a {questionnaire_emotion} emotion. This difference highlights how visual content can evoke different feelings than your stated preferences."
         return explanations.get((image_emotion, questionnaire_emotion), default_explanation)
+    
+    def recommend_by_emotion_profile(self, emotion_profile, num_recommendations=5, year_cutoff=2010):
+        """
+        Wrapper method to recommend songs based on an emotion profile dictionary.
+        
+        Args:
+            emotion_profile: Dictionary mapping emotions to intensity values (0-1)
+            num_recommendations: Number of songs to recommend
+            year_cutoff: Prefer songs released after this year
+            
+        Returns:
+            List of recommended songs
+        """
+        # Convert emotion_profile to a vector
+        emotion_vector = np.zeros(len(EMOTION_CATEGORIES))
+        for i, emotion in enumerate(EMOTION_CATEGORIES):
+            emotion_vector[i] = emotion_profile.get(emotion, 0.0)
+        
+        # Normalize the vector
+        norm = np.linalg.norm(emotion_vector)
+        if norm > 0:
+            emotion_vector = emotion_vector / norm
+        
+        # Get recommendations using the existing method
+        return self.recommend_by_emotion(emotion_vector, num_recommendations)
 

@@ -10,21 +10,33 @@ logger = logging.getLogger(__name__)
 
 class ImageEmotionDetector:
 
-    def __init__(self, model_name="Qwen/Qwen2.5-Omni-7B", use_dummy=False):
-        logger.info(f"Initializing ImageEmotionDetector with model: {model_name}")
+    def __init__(self, model_name="Qwen/Qwen2.5-Omni-7B", use_dummy=False, model_precision="auto"):
+        logger.info(f"Initializing ImageEmotionDetector with model: {model_name}, precision: {model_precision}")
         self.model_name = model_name
         self.use_dummy = use_dummy
+        self.emotion_categories = EMOTION_CATEGORIES
+        
         if not use_dummy:
             try:
                 from transformers import Qwen2_5OmniForConditionalGeneration, Qwen2_5OmniProcessor
                 from qwen_omni_utils import process_mm_info
-                self.model = Qwen2_5OmniForConditionalGeneration.from_pretrained(model_name, torch_dtype="auto", device_map="auto")
+                
+                # Set device map to "auto" for automatic offloading to CPU when needed
+                # Use reduced precision to save memory
+                self.model = Qwen2_5OmniForConditionalGeneration.from_pretrained(
+                    model_name, 
+                    torch_dtype=model_precision,
+                    device_map="auto",
+                    low_cpu_mem_usage=True,
+                    max_memory={0: "10GiB"}  # Limit GPU memory usage
+                )
                 self.processor = Qwen2_5OmniProcessor.from_pretrained(model_name)
                 logger.info("Model and processor loaded successfully")
             except Exception as e:
                 logger.error(f"Error initializing model: {e}")
                 logger.warning("Falling back to dummy detection")
                 self.use_dummy = True
+        self.last_analysis = None
 
     def detect_emotion(self, image_path: str) -> Tuple[str, Dict[str, float]]:
         logger.info(f"Detecting emotion from image: {image_path}")
@@ -41,13 +53,26 @@ class ImageEmotionDetector:
             for emotion, score in sorted(emotion_scores.items(), key=lambda x: x[1], reverse=True):
                 print(f"  {emotion}: {score:.3f}")
             print("=== END DUMMY IMAGE ANALYSIS ===\n")
+            self.last_analysis = "Using dummy mode - no actual image analysis performed."
             return dominant_emotion, emotion_scores
         try:
+            # Load and resize the image to reduce memory usage
+            from PIL import Image
+            import torch
+            
             image = Image.open(image_path).convert("RGB")
+            
+            # Resize the image if it's too large
+            max_size = (512, 512)
+            if max(image.size) > max(max_size):
+                image.thumbnail(max_size)
+                logger.info(f"Resized image to {image.size}")
+            
+            # Use a shorter system prompt and a more focused task
             conversation = [
                 {
                     "role": "system",
-                    "content": "You are an emotion detection AI. First, describe the image in 2-3 sentences. Then analyze what emotion it primarily conveys. Only respond with one of these emotions: happy, sad, calm, excited, angry, relaxed, fearful, surprised, or neutral. Also provide a confidence score from 0 to 1 for each of these emotions, with the scores summing to 1."
+                    "content": "Analyze the emotional content of images concisely."
                 },
                 {
                     "role": "user",
@@ -56,11 +81,26 @@ class ImageEmotionDetector:
                     ]
                 }
             ]
+            
+            # Optimize generation parameters
             text = self.processor.apply_chat_template(conversation, add_generation_prompt=True, tokenize=False)
             images = [image]
-            inputs = self.processor(text=text, images=images, return_tensors="pt", padding=True).to(self.model.device)
-            text_ids = self.model.generate(**inputs, max_new_tokens=256, return_audio=False)
+            
+            # Process in lower precision to save memory
+            with torch.no_grad():  # Disable gradient calculations to save memory
+                inputs = self.processor(text=text, images=images, return_tensors="pt", padding=True).to(self.model.device)
+                text_ids = self.model.generate(
+                    **inputs, 
+                    max_new_tokens=128,  # Reduce from 256 to 128
+                    return_audio=False,
+                    do_sample=False,  # Turn off sampling for deterministic outputs
+                )
+            
             response = self.processor.batch_decode(text_ids, skip_special_tokens=True)[0]
+            
+            # Store the full analysis
+            self.last_analysis = response
+            
             print("\n=== IMAGE ANALYSIS ===")
             print("Full model response:")
             print(response)
@@ -75,6 +115,7 @@ class ImageEmotionDetector:
             return dominant_emotion, emotion_scores
         except Exception as e:
             logger.error(f"Error detecting emotion: {e}")
+            self.last_analysis = f"Error analyzing image: {str(e)}"
             default_scores = {emotion: 1.0/len(EMOTION_CATEGORIES) if emotion == "neutral" else 0.0 for emotion in EMOTION_CATEGORIES}
             default_scores["neutral"] = 1.0
             return "neutral", default_scores
@@ -122,4 +163,8 @@ class ImageEmotionDetector:
         if norm > 0:
             vector = vector / norm
         return vector
+
+    def get_last_analysis(self) -> str:
+        """Return the full text of the last image analysis."""
+        return self.last_analysis if self.last_analysis else "No image analysis available"
 

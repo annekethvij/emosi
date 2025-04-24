@@ -43,128 +43,126 @@ class RAGEnhancer:
             logger.error(f"Error connecting to Spotify API: {e}")
             self.spotify_api = None
             
-def _generate_slider_based_recommendation_reason(self, recommendation: Dict, emotion_sliders: Dict[str, float]) -> str:
-    """
-    Generate recommendation reasons based on emotion slider inputs.
-    
-    Args:
-        recommendation: The track recommendation
-        emotion_sliders: Dictionary mapping emotions to intensity values (0-10)
+    def _generate_slider_based_recommendation_reason(self, recommendation: Dict, emotion_sliders: Dict[str, float]) -> str:
+        """
+        Generate recommendation reasons based on emotion slider inputs.
         
-    Returns:
-        String explaining why the track was recommended
-    """
-    track_idx = recommendation['track_idx']
-    track = self.tracks_df.iloc[track_idx]
-    
-    # Sort emotions by intensity to find primary emotions
-    top_emotions = sorted(
-        [(emotion, intensity) for emotion, intensity in emotion_sliders.items() if intensity > 0], 
-        key=lambda x: x[1], 
-        reverse=True
-    )[:3]  # Get top 3 emotions
-    
-    if not top_emotions:
-        return "This track was recommended based on your preferences."
-    
-    # If there's only one dominant emotion with high intensity
-    if len(top_emotions) == 1 or (top_emotions[0][1] > 7 and top_emotions[0][1] > top_emotions[1][1] * 2):
-        dominant_emotion = top_emotions[0][0]
-        reason = f"This track was recommended because it strongly matches your {dominant_emotion} feeling. "
+        Args:
+            recommendation: The track recommendation
+            emotion_sliders: Dictionary mapping emotions to intensity values (0-10)
+            
+        Returns:
+            String explaining why the track was recommended
+        """
+        track_idx = recommendation['track_idx']
+        track = self.tracks_df.iloc[track_idx]
         
-        # Add specific audio feature explanation based on the emotion
-        if dominant_emotion.lower() in ['happiness', 'happy', 'joy']:
+        # Sort emotions by intensity to find primary emotions
+        top_emotions = sorted(
+            [(emotion, intensity) for emotion, intensity in emotion_sliders.items() if intensity > 0], 
+            key=lambda x: x[1], 
+            reverse=True
+        )[:3]  # Get top 3 emotions
+        
+        if not top_emotions:
+            return "This track was recommended based on your preferences."
+        
+        # If there's only one dominant emotion with high intensity
+        if len(top_emotions) == 1 or (top_emotions[0][1] > 7 and top_emotions[0][1] > top_emotions[1][1] * 2):
+            dominant_emotion = top_emotions[0][0]
+            reason = f"This track was recommended because it strongly matches your {dominant_emotion} feeling. "
+            
+            # Add specific audio feature explanation based on the emotion
+            if dominant_emotion.lower() in ['happiness', 'happy', 'joy']:
+                if track['valence'] > 0.7:
+                    reason += f"It has a very positive tone (valence: {track['valence']:.2f})."
+                elif track['energy'] > 0.7:
+                    reason += f"It has high energy ({track['energy']:.2f}) that amplifies positive feelings."
+            elif dominant_emotion.lower() in ['sadness', 'sad']:
+                if track['valence'] < 0.4:
+                    reason += f"It has a more melancholic tone (valence: {track['valence']:.2f})."
+                elif track['mode'] == 0:
+                    reason += f"It's in a minor key, which often evokes this emotion."
+            elif dominant_emotion.lower() in ['fear', 'fearful', 'anxiety', 'apprehension']:
+                if track['valence'] < 0.4 and track['energy'] > 0.5:
+                    reason += f"It combines tense energy with lower valence, creating the right atmosphere."
+            elif dominant_emotion.lower() in ['calm', 'serenity', 'relaxed', 'contentment']:
+                if track['energy'] < 0.4:
+                    reason += f"It has low energy ({track['energy']:.2f}) that creates a calm atmosphere."
+                elif track['acousticness'] > 0.6:
+                    reason += f"It's acoustically rich ({track['acousticness']:.2f}), perfect for relaxation."
+            elif dominant_emotion.lower() in ['surprised', 'surprise']:
+                if track['liveness'] > 0.6:
+                    reason += f"It has unexpected live elements that create a sense of surprise."
+            elif dominant_emotion.lower() in ['disgust']:
+                if track['valence'] < 0.3 and track['energy'] > 0.5:
+                    reason += f"It has dissonant qualities that match this feeling."
+            elif dominant_emotion.lower() in ['anger', 'angry']:
+                if track['energy'] > 0.8:
+                    reason += f"It has intense energy ({track['energy']:.2f}) that channels this emotion."
+            elif dominant_emotion.lower() in ['excitement', 'excited']:
+                if track['tempo'] > 120 and track['energy'] > 0.7:
+                    reason += f"It has a driving tempo ({track['tempo']:.1f} BPM) with high energy."
+            elif dominant_emotion.lower() in ['pride']:
+                if track['valence'] > 0.6 and track['energy'] > 0.5:
+                    reason += f"It has a confident, positive tone that resonates with this feeling."
+            elif dominant_emotion.lower() in ['nostalgia']:
+                if track['acousticness'] > 0.6:
+                    reason += f"It has warm acoustic qualities that evoke memories."
+            elif dominant_emotion.lower() in ['amusement', 'humourous']:
+                if track['valence'] > 0.7 and track['energy'] > 0.5:
+                    reason += f"It has a playful combination of positivity and energy."
+            elif dominant_emotion.lower() in ['hope']:
+                if track['mode'] == 1 and track['valence'] > 0.5:
+                    reason += f"It uses major key with positive valence to inspire optimism."
+            elif dominant_emotion.lower() in ['love']:
+                if track['valence'] > 0.6 and track['acousticness'] > 0.5:
+                    reason += f"It has a warm, intimate quality perfect for this emotion."
+            elif dominant_emotion.lower() in ['awe', 'wonder']:
+                if track['acousticness'] > 0.6 and track['instrumentalness'] > 0.5:
+                    reason += f"It has expansive sonic qualities that create a sense of wonder."
+            elif dominant_emotion.lower() in ['chaotic', 'electric', 'wild']:
+                if track['energy'] > 0.8:
+                    reason += f"It has intense energy ({track['energy']:.2f}) that matches this feeling."
+            elif dominant_emotion.lower() in ['grief']:
+                if track['valence'] < 0.3 and track['tempo'] < 80:
+                    reason += f"It combines deep emotional tone with slow pace."
+            elif dominant_emotion.lower() in ['confusion']:
+                if track['mode'] == 0 and track['valence'] < 0.5:
+                    reason += f"It has tonal complexities that mirror this feeling."
+            else:
+                reason += f"Its audio profile closely matches this emotional signature."
+        
+        # If there are multiple emotions with similar intensities
+        else:
+            primary_emotion = top_emotions[0][0]
+            secondary_emotion = top_emotions[1][0]
+            reason = f"This track was recommended because it balances your {primary_emotion} and {secondary_emotion} feelings. "
+            
+            # Add explanation based on the track's audio features
             if track['valence'] > 0.7:
-                reason += f"It has a very positive tone (valence: {track['valence']:.2f})."
-            elif track['energy'] > 0.7:
-                reason += f"It has high energy ({track['energy']:.2f}) that amplifies positive feelings."
-        elif dominant_emotion.lower() in ['sadness', 'sad']:
-            if track['valence'] < 0.4:
-                reason += f"It has a more melancholic tone (valence: {track['valence']:.2f})."
-            elif track['mode'] == 0:
-                reason += f"It's in a minor key, which often evokes this emotion."
-        elif dominant_emotion.lower() in ['fear', 'fearful', 'anxiety', 'apprehension']:
-            if track['valence'] < 0.4 and track['energy'] > 0.5:
-                reason += f"It combines tense energy with lower valence, creating the right atmosphere."
-        elif dominant_emotion.lower() in ['calm', 'serenity', 'relaxed', 'contentment']:
-            if track['energy'] < 0.4:
-                reason += f"It has low energy ({track['energy']:.2f}) that creates a calm atmosphere."
-            elif track['acousticness'] > 0.6:
-                reason += f"It's acoustically rich ({track['acousticness']:.2f}), perfect for relaxation."
-        elif dominant_emotion.lower() in ['surprised', 'surprise']:
-            if track['liveness'] > 0.6:
-                reason += f"It has unexpected live elements that create a sense of surprise."
-        elif dominant_emotion.lower() in ['disgust']:
-            if track['valence'] < 0.3 and track['energy'] > 0.5:
-                reason += f"It has dissonant qualities that match this feeling."
-        elif dominant_emotion.lower() in ['anger', 'angry']:
-            if track['energy'] > 0.8:
-                reason += f"It has intense energy ({track['energy']:.2f}) that channels this emotion."
-        elif dominant_emotion.lower() in ['excitement', 'excited']:
-            if track['tempo'] > 120 and track['energy'] > 0.7:
-                reason += f"It has a driving tempo ({track['tempo']:.1f} BPM) with high energy."
-        elif dominant_emotion.lower() in ['pride']:
-            if track['valence'] > 0.6 and track['energy'] > 0.5:
-                reason += f"It has a confident, positive tone that resonates with this feeling."
-        elif dominant_emotion.lower() in ['nostalgia']:
-            if track['acousticness'] > 0.6:
-                reason += f"It has warm acoustic qualities that evoke memories."
-        elif dominant_emotion.lower() in ['amusement', 'humourous']:
-            if track['valence'] > 0.7 and track['energy'] > 0.5:
-                reason += f"It has a playful combination of positivity and energy."
-        elif dominant_emotion.lower() in ['hope']:
-            if track['mode'] == 1 and track['valence'] > 0.5:
-                reason += f"It uses major key with positive valence to inspire optimism."
-        elif dominant_emotion.lower() in ['love']:
-            if track['valence'] > 0.6 and track['acousticness'] > 0.5:
-                reason += f"It has a warm, intimate quality perfect for this emotion."
-        elif dominant_emotion.lower() in ['awe', 'wonder']:
-            if track['acousticness'] > 0.6 and track['instrumentalness'] > 0.5:
-                reason += f"It has expansive sonic qualities that create a sense of wonder."
-        elif dominant_emotion.lower() in ['chaotic', 'electric', 'wild']:
-            if track['energy'] > 0.8:
-                reason += f"It has intense energy ({track['energy']:.2f}) that matches this feeling."
-        elif dominant_emotion.lower() in ['grief']:
-            if track['valence'] < 0.3 and track['tempo'] < 80:
-                reason += f"It combines deep emotional tone with slow pace."
-        elif dominant_emotion.lower() in ['confusion']:
-            if track['mode'] == 0 and track['valence'] < 0.5:
-                reason += f"It has tonal complexities that mirror this feeling."
-        else:
-            reason += f"Its audio profile closely matches this emotional signature."
-    
-    # If there are multiple emotions with similar intensities
-    else:
-        primary_emotion = top_emotions[0][0]
-        secondary_emotion = top_emotions[1][0]
-        reason = f"This track was recommended because it balances your {primary_emotion} and {secondary_emotion} feelings. "
+                reason += f"It has a positive tone (valence: {track['valence']:.2f}) "
+            elif track['valence'] < 0.3:
+                reason += f"It has a melancholic quality (valence: {track['valence']:.2f}) "
+            
+            if track['energy'] > 0.7:
+                reason += f"with high energy ({track['energy']:.2f}), "
+            elif track['energy'] < 0.3:
+                reason += f"with gentle energy ({track['energy']:.2f}), "
+            
+            if track['tempo'] > 120:
+                reason += f"and a driving tempo of {track['tempo']:.1f} BPM."
+            elif track['tempo'] < 90:
+                reason += f"and a relaxed tempo of {track['tempo']:.1f} BPM."
+            else:
+                reason += f"and balanced musical elements."
         
-        # Add explanation based on the track's audio features
-        if track['valence'] > 0.7:
-            reason += f"It has a positive tone (valence: {track['valence']:.2f}) "
-        elif track['valence'] < 0.3:
-            reason += f"It has a melancholic quality (valence: {track['valence']:.2f}) "
+        # Add genre information if available
+        if 'track_genre' in track and str(track['track_genre']) != 'nan' and str(track['track_genre']) != 'Unknown':
+            reason += f" It belongs to the {track['track_genre']} genre."
         
-        if track['energy'] > 0.7:
-            reason += f"with high energy ({track['energy']:.2f}), "
-        elif track['energy'] < 0.3:
-            reason += f"with gentle energy ({track['energy']:.2f}), "
-        
-        if track['tempo'] > 120:
-            reason += f"and a driving tempo of {track['tempo']:.1f} BPM."
-        elif track['tempo'] < 90:
-            reason += f"and a relaxed tempo of {track['tempo']:.1f} BPM."
-        else:
-            reason += f"and balanced musical elements."
-    
-    # Add genre information if available
-    if 'track_genre' in track and str(track['track_genre']) != 'nan' and str(track['track_genre']) != 'Unknown':
-        reason += f" It belongs to the {track['track_genre']} genre."
-        
-    return reason
+        return reason
 
-  
-    
     def enhance_recommendations(self, recommendations: List[Dict], query_context: Dict) -> List[Dict]:
         """
         Enhance recommendations with additional context and information.
