@@ -30,6 +30,7 @@ pip uninstall transformers
 pip install git+https://github.com/BakerBunker/transformers@21dbefaa54e5bf180464696aa70af0bfc7a61d53
 pip install accelerate
 pip install qwen-omni-utils[decord] -U
+pip install huggingface_hub[hf_xet]
 ```
 
 ## Usage
