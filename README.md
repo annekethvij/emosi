@@ -19,7 +19,7 @@ EMOSI is a system that recommends music based on emotions detected from:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/emosi.git
+git clone https://github.com/annekethvij/emosi.git
 cd emosi
 
 # Install dependencies
